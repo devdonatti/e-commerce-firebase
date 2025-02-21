@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
+// Configuración del cliente de MercadoPago
 const client = new MercadoPagoConfig({
   accessToken:
     "APP_USR-5002262327522339-110611-d2dfcbaa10598f2336e9c4b9ded29dd7-1338912701",
@@ -16,7 +17,7 @@ app.use(
     allowedHeaders: ["Content-Type"],
   })
 );
-const port = 3000;
+const port = 4000;
 
 app.use(cors());
 app.use(express.json());
@@ -27,6 +28,7 @@ app.get("/", (req, res) => {
 
 // Endpoint para crear una preferencia desde el detalle del producto
 app.post("/create_preference", async (req, res) => {
+  console.log("Datos recibidos en /create_preference:", req.body); // Agregar log para verificar los datos que recibes
   try {
     const body = {
       items: [
@@ -49,22 +51,36 @@ app.post("/create_preference", async (req, res) => {
 
     const preference = new Preference(client);
     const result = await preference.create({ body });
-    res.json({
-      id: result.id,
-    });
+
+    // Imprimir la respuesta completa para verificar la estructura
+    console.log("Resultado completo de MercadoPago:", result);
+
+    // Verificar si la respuesta contiene los campos necesarios
+    if (result && result.id && result.init_point) {
+      return res.json({
+        id: result.id, // id directamente en el objeto
+        init_point: result.init_point, // URL para redirigir
+      });
+    } else {
+      console.error("Respuesta inesperada de MercadoPago:", result);
+      return res.status(500).json({
+        error: "No se recibió un ID de preferencia válido.",
+      });
+    }
   } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      error: "Error al crear la preferencia: (",
+    console.error("Error al crear la preferencia:", error);
+    return res.status(500).json({
+      error: error.message || "Error al crear la preferencia.",
     });
   }
 });
 
+// Endpoint para crear una preferencia desde el carrito de compras
 app.post("/create_preference_cart", async (req, res) => {
+  console.log("Datos recibidos en /create_preference_cart:", req.body); // Agregar log para verificar los datos que recibes
   try {
     const cartItems = req.body.cartItems;
 
-    // Validación de los elementos del carrito
     if (!cartItems || cartItems.length === 0) {
       return res.status(400).json({
         error: "El carrito está vacío o no contiene elementos válidos.",
@@ -101,19 +117,24 @@ app.post("/create_preference_cart", async (req, res) => {
     const preference = new Preference(client);
     const result = await preference.create({ body });
 
-    console.log("Respuesta de MercadoPago:", result); // Imprimir la respuesta completa de MercadoPago
+    // Imprimir la respuesta completa para verificar la estructura
+    console.log("Resultado completo de MercadoPago:", result);
 
-    // Verificar si el ID de preferencia está presente
-    if (result && result.body && result.body.id) {
+    // Verificar si la respuesta contiene los campos necesarios
+    if (result && result.id && result.init_point) {
       return res.json({
-        id: result.body.id, // Responder con el ID de la preferencia
+        id: result.id, // id directamente en el objeto
+        init_point: result.init_point, // URL para redirigir
       });
     } else {
-      throw new Error("Error: No se recibió un ID de preferencia válido.");
+      console.error("Respuesta inesperada de MercadoPago:", result);
+      return res.status(500).json({
+        error: "No se recibió un ID de preferencia válido.",
+      });
     }
   } catch (error) {
     console.error("Error al crear la preferencia:", error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || "Error al crear la preferencia.",
     });
   }
